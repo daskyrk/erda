@@ -20,9 +20,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/erda-project/erda-infra/providers/httpserver"
 	"github.com/erda-project/erda/pkg/httpclient"
-	"gopkg.in/yaml.v2"
 
 	"github.com/erda-project/erda-infra/base/logs"
 	"github.com/erda-project/erda-infra/base/servicehub"
@@ -37,7 +38,7 @@ import (
 
 type define struct{}
 
-func (d *define) Service() []string   { return []string{"notify-query"} }
+func (d *define) Services() []string  { return []string{"notify-query"} }
 func (d *define) Summary() string     { return "notify-query" }
 func (d *define) Description() string { return d.Summary() }
 func (d *define) Config() interface{} { return &config{} }

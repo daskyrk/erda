@@ -17,18 +17,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/recallsong/go-utils/ioutil"
+
 	"github.com/erda-project/erda-infra/base/logs"
 	"github.com/erda-project/erda-infra/base/servicehub"
-
-	// "github.com/erda-project/erda-infra/providers/httpserver"
-	// "github.com/erda-project/erda-infra/providers/httpserver/interceptors"
+	"github.com/erda-project/erda-infra/providers/httpserver"
+	"github.com/erda-project/erda-infra/providers/httpserver/interceptors"
 	"github.com/erda-project/erda-infra/providers/i18n"
 	"github.com/erda-project/erda-infra/providers/mysql"
 	indexmanager "github.com/erda-project/erda/modules/monitor/core/metrics/index"
 	"github.com/erda-project/erda/modules/monitor/core/metrics/metricq/chartmeta"
 	"github.com/erda-project/erda/modules/monitor/core/metrics/metricq/metricmeta"
 	"github.com/erda-project/erda/modules/monitor/core/metrics/metricq/query"
-	"github.com/recallsong/go-utils/ioutil"
 
 	_ "github.com/erda-project/erda/modules/monitor/core/metrics/metricq/es-tsql/formats/chartv2"  //
 	_ "github.com/erda-project/erda/modules/monitor/core/metrics/metricq/es-tsql/formats/dict"     //
@@ -114,11 +114,11 @@ func (p *provider) Init(ctx servicehub.Context) error {
 		return fmt.Errorf("fail to start charts manager: %s", err)
 	}
 
-	// routes := ctx.Service("http-server", metrics.HttpMetric(), interceptors.Recover(p.L), interceptors.CORS()).(httpserver.Router)
-	// err = p.initRoutes(routes)
-	// if err != nil {
-	// 	return fmt.Errorf("fail to init routes: %s", err)
-	// }
+	routes := ctx.Service("http-server", interceptors.Recover(p.L), interceptors.CORS()).(httpserver.Router)
+	err = p.initRoutes(routes)
+	if err != nil {
+		return fmt.Errorf("fail to init routes: %s", err)
+	}
 	return nil
 }
 

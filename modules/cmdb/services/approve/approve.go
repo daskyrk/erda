@@ -30,15 +30,15 @@ import (
 	"github.com/erda-project/erda/modules/cmdb/dao"
 	"github.com/erda-project/erda/modules/cmdb/model"
 	"github.com/erda-project/erda/modules/cmdb/services/member"
-	"github.com/erda-project/erda/modules/cmdb/utils"
 	"github.com/erda-project/erda/pkg/strutil"
+	"github.com/erda-project/erda/pkg/ucauth"
 )
 
 // Approve 资源对象操作封装
 type Approve struct {
 	db     *dao.DBClient
 	bdl    *bundle.Bundle
-	uc     *utils.UCClient
+	uc     *ucauth.UCClient
 	member *member.Member
 }
 
@@ -62,7 +62,7 @@ func WithDBClient(db *dao.DBClient) Option {
 }
 
 // WithUCClient 配置 uc client
-func WithUCClient(uc *utils.UCClient) Option {
+func WithUCClient(uc *ucauth.UCClient) Option {
 	return func(p *Approve) {
 		p.uc = uc
 	}
@@ -191,8 +191,8 @@ func (a *Approve) mkMboxEmailNotify(id int64, done string, orgid uint64, project
 		return err
 	}
 
-	url := fmt.Sprintf("%s://%s-org.%s/orgCenter/approval/%s?id=%d",
-		protocol, org.Name, domain, done, id)
+	url := fmt.Sprintf("%s://%s-org.%s/%s/orgCenter/approval/%s?id=%d",
+		protocol, org.Name, domain, org.Name, done, id)
 
 	approverIDs := []string{}
 	emails := []string{}

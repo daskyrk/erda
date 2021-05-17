@@ -20,13 +20,14 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/gocql/gocql"
+	"github.com/pkg/errors"
+
 	"github.com/erda-project/erda-infra/base/logs"
 	"github.com/erda-project/erda-infra/providers/cassandra"
 	mutex "github.com/erda-project/erda-infra/providers/etcd-mutex"
 	"github.com/erda-project/erda/apistructs"
 	"github.com/erda-project/erda/bundle"
-	"github.com/gocql/gocql"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -73,26 +74,34 @@ func (cs *CassandraSchema) Name() string {
 func (cs *CassandraSchema) RunDaemon(ctx context.Context, interval time.Duration, muInf mutex.Interface) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	mu, err := muInf.New(ctx, "logs_store")
+	mu, err := muInf.New(ctx, "/logs_store")
 	if err != nil {
-		cs.Logger.Errorf("create mu failed, err: %s", err)
+		if err != context.Canceled {
+			cs.Logger.Errorf("create mu failed, err: %s", err)
+		}
+		return
 	}
-	defer mu.Close()
+
+	err = mu.Lock(ctx)
+	if err != nil {
+		if err != context.Canceled {
+			cs.Logger.Errorf("lock failed, err: %s", err)
+		}
+		return
+	}
+
+	defer func() {
+		if mu != nil {
+			mu.Unlock(context.TODO())
+			mu.Close()
+		}
+	}()
 
 	for {
-		if err := mu.Lock(ctx); err != nil {
-			cs.Logger.Errorf("lock failed, err: %s", err)
-			continue
-		}
-
 		err = cs.compareOrUpdate()
 		if err != nil {
 			cs.Logger.Errorf("refresh org info or keyspaces failed. err: %s", err)
-			continue
 		}
-
-		cs.Logger.Debug("load CassandraSchema success")
-		_ = mu.Unlock(ctx)
 
 		select {
 		case <-ticker.C:

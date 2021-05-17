@@ -64,6 +64,12 @@ func (e *Endpoints) CreateOrg(ctx context.Context, r *http.Request, vars map[str
 	if err := json.NewDecoder(r.Body).Decode(&orgCreateReq); err != nil {
 		return apierrors.ErrCreateOrg.InvalidParameter(err).ToResp(), nil
 	}
+
+	// check the org name is invalid
+	if !strutil.IsValidPrjOrAppName(orgCreateReq.Name) {
+		return apierrors.ErrCreateOrg.InvalidParameter(errors.Errorf("org name is invalid %s",
+			orgCreateReq.Name)).ToResp(), nil
+	}
 	logrus.Infof("request body: %+v", orgCreateReq)
 
 	// 第一次创建企业的时候还没有集群，没有集群创建ingress会出错，先注释掉了
@@ -443,11 +449,12 @@ func (e *Endpoints) ListPublicOrg(ctx context.Context, r *http.Request, vars map
 func (e *Endpoints) GetOrgByDomain(ctx context.Context, r *http.Request, vars map[string]string) (
 	httpserver.Responser, error) {
 	domain := r.URL.Query().Get("domain")
+	orgName := r.URL.Query().Get("orgName")
 	if domain == "" {
 		return apierrors.ErrGetOrg.MissingParameter("domain").ToResp(), nil
 	}
 
-	org, err := e.org.GetOrgByDomain(domain)
+	org, err := e.org.GetOrgByDomainAndOrgName(domain, orgName)
 	if err != nil {
 		return apierrors.ErrGetOrg.InternalError(err).ToResp(), nil
 	}

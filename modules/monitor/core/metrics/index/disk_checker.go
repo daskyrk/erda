@@ -20,10 +20,11 @@ import (
 	"sort"
 	"time"
 
-	mutex "github.com/erda-project/erda-infra/providers/etcd-mutex"
 	"github.com/olivere/elastic"
 	cfgpkg "github.com/recallsong/go-utils/config"
 	"github.com/recallsong/go-utils/lang/size"
+
+	mutex "github.com/erda-project/erda-infra/providers/etcd-mutex"
 )
 
 func (m *IndexManager) getNodeStats() (map[string]*elastic.NodesStatsNode, error) {
@@ -84,6 +85,9 @@ func (m *IndexManager) getNodeDiskUsage(filter func(*NodeDiskUsage) bool) (map[s
 
 func (m *IndexManager) getNodeIndices(filter func(*NodeDiskUsage) bool) (map[string]*NodeDiskUsage, map[string]map[string]*NodeDiskUsage, error) {
 	nodes, err := m.getNodeDiskUsage(filter)
+	if err != nil {
+		return nil, nil, err
+	}
 	if len(nodes) <= 0 {
 		return nil, nil, nil
 	}
@@ -98,7 +102,7 @@ func (m *IndexManager) getNodeIndices(filter func(*NodeDiskUsage) bool) (map[str
 			indices = make(map[string]*NodeDiskUsage)
 			routing[id] = indices
 		}
-		shards, _ := state.RoutingNodes.Nodes[id]
+		shards := state.RoutingNodes.Nodes[id]
 		for _, shard := range shards {
 			if _, ok := indices[shard.Index]; !ok {
 				indices[shard.Index] = node
@@ -173,6 +177,9 @@ func (m *IndexManager) checkDiskUsage() error {
 				n.StorePercent >= m.cfg.DiskClean.MinIndicesStorePercent &&
 				n.Store >= m.cfg.DiskClean.minIndicesStore
 		})
+		if err != nil {
+			return err
+		}
 	}
 	if m.cfg.EnableRollover {
 		_, sortedIndices := m.getSortedRolloverIndices()
@@ -236,8 +243,8 @@ func (m *IndexManager) startDiskCheck(lock mutex.Mutex) error {
 		if lock != nil {
 			defer lock.Close()
 		}
-		m.waitAndGetIndices()                                                              // Let the indices load first
-		time.Sleep(10*time.Second + time.Duration((random.Int63()%10)*int64(time.Second))) // Try to avoid multiple instances at the same time
+		m.waitAndGetIndices()                                                           // Let the indices load first
+		time.Sleep(10*time.Second + time.Duration(random.Int63n(9)*int64(time.Second))) // Try to avoid multiple instances at the same time
 		m.log.Infof("enable disk clean, interval: %v", m.cfg.DiskClean.CheckInterval)
 		for {
 			if lock != nil {

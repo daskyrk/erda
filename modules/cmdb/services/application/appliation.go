@@ -25,7 +25,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 
 	"github.com/erda-project/erda/apistructs"
 	"github.com/erda-project/erda/bundle"
@@ -35,15 +35,15 @@ import (
 	"github.com/erda-project/erda/modules/cmdb/services/apierrors"
 	"github.com/erda-project/erda/modules/cmdb/services/namespace"
 	"github.com/erda-project/erda/modules/cmdb/types"
-	"github.com/erda-project/erda/modules/cmdb/utils"
 	"github.com/erda-project/erda/pkg/strutil"
+	"github.com/erda-project/erda/pkg/ucauth"
 	"github.com/erda-project/erda/pkg/uuid"
 )
 
 // Application 应用操作封装
 type Application struct {
 	db  *dao.DBClient
-	uc  *utils.UCClient
+	uc  *ucauth.UCClient
 	bdl *bundle.Bundle
 	ns  *namespace.Namespace
 }
@@ -68,7 +68,7 @@ func WithDBClient(db *dao.DBClient) Option {
 }
 
 // WithUCClient 配置 uc client
-func WithUCClient(uc *utils.UCClient) Option {
+func WithUCClient(uc *ucauth.UCClient) Option {
 	return func(a *Application) {
 		a.uc = uc
 	}
@@ -928,7 +928,7 @@ func (a *Application) UpdatePublishItemRelations(request *apistructs.UpdateAppPu
 			return err
 		}
 		if len(monitorAddon.Data) == 0 {
-			return errors.Errorf("the monitor addon doesn't exit ENV: %s, projectID: %d", workspace.String(), app.ProjectID)
+			return errors.Errorf("the monitor addon doesn't exist ENV: %s, projectID: %d", workspace.String(), app.ProjectID)
 		}
 		AK, ok := monitorAddon.Data[0].Config["TERMINUS_KEY"]
 		if !ok {

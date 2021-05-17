@@ -1,6 +1,4 @@
-# Erda - An enterprise-grade microservice application development platform
-
-[![codecov](https://codecov.io/gh/erda-project/erda/branch/develop/graph/badge.svg?token=ZFQ3X4257K)](https://codecov.io/gh/erda-project/erda)
+# Erda - An enterprise-grade application building, development, monitoring platform
 
 ![Erda logo](./docs/assets/logo-small.jpg)
 
@@ -42,7 +40,7 @@ We split the codes of erda into multiple repositories according to different fun
 
 ## User Documentation
 
-To start using Erda, please see our user documentation. Before using, you need to see the installation document to install erda.
+To start using Erda, please see our user documentation. Before using, you need to see the [installation document](./docs/guides/deploy/How-to-install-the-Erda.md) to install erda.
 
 - [中文](https://dice-docs.app.terminus.io)
 - English

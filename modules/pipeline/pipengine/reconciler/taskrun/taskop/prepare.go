@@ -120,6 +120,7 @@ func (pre *prepare) makeTaskRun() (needRetry bool, err error) {
 	if err != nil {
 		return true, apierrors.ErrGetCluster.InternalError(err)
 	}
+	pre.Ctx = context.WithValue(pre.Ctx, apistructs.NETPORTAL_URL, clusterInfo.Get(apistructs.NETPORTAL_URL))
 
 	// TODO 目前 initSQL 需要存储在 网盘上，暂时不能用 volume 来解
 	mountPoint := clusterInfo.MustGet(apistructs.DICE_STORAGE_MOUNTPOINT)
@@ -178,7 +179,7 @@ func (pre *prepare) makeTaskRun() (needRetry bool, err error) {
 	actionDiceYmlJobMap, actionSpecYmlJobMap, err := pre.ExtMarketSvc.SearchActions(extSearchReq,
 		extmarketsvc.SearchActionWithRender(map[string]string{"storageMountPoint": mountPoint}))
 	if err != nil {
-		return true, nil
+		return true, err
 	}
 
 	// 校验 action agent
@@ -191,7 +192,7 @@ func (pre *prepare) makeTaskRun() (needRetry bool, err error) {
 		return false, apierrors.ErrValidateActionAgent.MissingParameter("MD5 (labels)")
 	}
 	if err := pre.ActionAgentSvc.Ensure(clusterInfo, agentDiceYmlJob.Image, agentMD5); err != nil {
-		return true, nil
+		return true, err
 	}
 
 	// action
@@ -318,6 +319,15 @@ func (pre *prepare) makeTaskRun() (needRetry bool, err error) {
 		Memory: conf.TaskDefaultMEM(),
 		Disk:   0,
 	}
+	// get from applied resource
+	if cpu := task.Extra.AppliedResources.Requests.CPU; cpu > 0 {
+		task.Extra.RuntimeResource.CPU = cpu
+	}
+	if mem := task.Extra.AppliedResources.Requests.MemoryMB; mem > 0 {
+		task.Extra.RuntimeResource.Memory = mem
+	}
+
+	// -- begin -- remove these logic when 4.1, because some already running pipelines doesn't have appliedResources fields.
 	// action 定义里的资源配置
 	if diceYmlJob.Resources.CPU > 0 {
 		task.Extra.RuntimeResource.CPU = diceYmlJob.Resources.CPU
@@ -338,6 +348,8 @@ func (pre *prepare) makeTaskRun() (needRetry bool, err error) {
 	if action.Resources.Disk > 0 {
 		task.Extra.RuntimeResource.Disk = float64(action.Resources.Disk)
 	}
+	// -- end -- remove these logic when 4.1
+
 	// resource 相关环境变量
 	task.Extra.PublicEnvs["PIPELINE_LIMITED_CPU"] = fmt.Sprintf("%g", task.Extra.RuntimeResource.CPU)
 	task.Extra.PublicEnvs["PIPELINE_LIMITED_MEM"] = fmt.Sprintf("%g", task.Extra.RuntimeResource.Memory)
@@ -348,7 +360,9 @@ func (pre *prepare) makeTaskRun() (needRetry bool, err error) {
 		return false, nil
 	}
 
-	if p.Extra.StorageConfig.EnablePipelineVolume() && task.ExecutorKind == spec.PipelineTaskExecutorKindScheduler {
+	if p.Extra.StorageConfig.EnableNFSVolume() &&
+		!p.Extra.StorageConfig.EnableShareVolume() &&
+		task.ExecutorKind == spec.PipelineTaskExecutorKindScheduler {
 		// --- cmd ---
 		// task.Context.InStorages
 	continueContextVolumes:
@@ -466,7 +480,9 @@ func (pre *prepare) makeTaskRun() (needRetry bool, err error) {
 		}
 
 	}
-	if p.Extra.StorageConfig.EnablePipelineVolume() && task.ExecutorKind == spec.PipelineTaskExecutorKindScheduler {
+	if p.Extra.StorageConfig.EnableNFSVolume() &&
+		!p.Extra.StorageConfig.EnableShareVolume() &&
+		task.ExecutorKind == spec.PipelineTaskExecutorKindScheduler {
 		for _, namespace := range task.Extra.Action.Namespaces {
 			task.Context.OutStorages = append(task.Context.OutStorages, pvolumes.GenerateTaskVolume(*task, namespace, nil))
 		}
@@ -492,23 +508,21 @@ func (pre *prepare) makeTaskRun() (needRetry bool, err error) {
 		task.Status = apistructs.PipelineStatusBorn
 	}
 
-	if p.Extra.StorageConfig.EnablePipelineVolume() && task.ExecutorKind == spec.PipelineTaskExecutorKindScheduler {
+	if (p.Extra.StorageConfig.EnableNFSVolume() || p.Extra.StorageConfig.EnableShareVolume()) && task.ExecutorKind == spec.PipelineTaskExecutorKindScheduler {
 		// 处理 task caches
 		pvolumes.HandleTaskCacheVolumes(p, task, diceYmlJob, mountPoint)
+		// --- binds ---
+		task.Extra.Binds = pvolumes.GenerateTaskCommonBinds(mountPoint)
+		jobBinds, err := pvolumes.ParseDiceYmlJobBinds(diceYmlJob)
+		if err != nil {
+			return false, apierrors.ErrRunPipeline.InternalError(err)
+		}
+		for _, bind := range jobBinds {
+			task.Extra.Binds = append(task.Extra.Binds, bind)
+		}
+		// --- volumes ---
+		task.Extra.Volumes = contextVolumes(task.Context)
 	}
-
-	// --- binds ---
-	task.Extra.Binds = pvolumes.GenerateTaskCommonBinds(mountPoint)
-	jobBinds, err := pvolumes.ParseDiceYmlJobBinds(diceYmlJob)
-	if err != nil {
-		return false, apierrors.ErrRunPipeline.InternalError(err)
-	}
-	for _, bind := range jobBinds {
-		task.Extra.Binds = append(task.Extra.Binds, bind)
-	}
-
-	// --- volumes ---
-	task.Extra.Volumes = contextVolumes(task.Context)
 
 	// --- preFetcher ---
 	const agentHostPath = "/devops/ci/action-agent/agent"

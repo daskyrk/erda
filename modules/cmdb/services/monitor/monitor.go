@@ -27,9 +27,9 @@ import (
 	"github.com/erda-project/erda/bundle"
 	"github.com/erda-project/erda/modules/cmdb/dao"
 	"github.com/erda-project/erda/modules/cmdb/model"
-	"github.com/erda-project/erda/modules/cmdb/utils"
 	"github.com/erda-project/erda/pkg/cron"
 	"github.com/erda-project/erda/pkg/dlock"
+	"github.com/erda-project/erda/pkg/ucauth"
 )
 
 const (
@@ -144,7 +144,7 @@ func batchMetrics(issueMonitor []IssueMonitor, bdl *bundle.Bundle) {
 	logrus.Info(" batchMetrics CollectMetrics end ")
 }
 
-func RunIssueHistoryData(db *dao.DBClient, uc *utils.UCClient, bdl *bundle.Bundle) {
+func RunIssueHistoryData(db *dao.DBClient, uc *ucauth.UCClient, bdl *bundle.Bundle) {
 	logrus.Infof("start RunIssueHistoryData time %v", time.Now().Unix())
 
 	allProject, err := db.GetAllProjects()
@@ -231,7 +231,7 @@ func RunHistoryData(db *dao.DBClient, bdl *bundle.Bundle) {
 	logrus.Infof("end RunHistoryData time %v", time.Now().Unix())
 }
 
-func MetricsIssueById(ID int, db *dao.DBClient, uc *utils.UCClient, bdl *bundle.Bundle) {
+func MetricsIssueById(ID int, db *dao.DBClient, uc *ucauth.UCClient, bdl *bundle.Bundle) {
 	if db == nil {
 		logrus.Errorf("MetricsIssueById db is empty")
 		return
@@ -491,9 +491,7 @@ func statisticsAddAndRepairBug(r StatisticsAddAndRepairBugRequest) (*IssueMonito
 	if !r.CreateEndTime.IsZero() {
 		repairSql += "and updated_at < ? "
 	}
-	repairSql += " and state = ? "
-
-	params = append(params, apistructs.IssueStateClosed)
+	repairSql += fmt.Sprintf(" and state = (select id from dice_issue_state where project_id = %v and issue_type = '%s' and belong = '%s')", r.ProjectId, apistructs.IssueTypeBug, apistructs.IssueStateClosed)
 	row = r.db.Raw(repairSql, params...).Row()
 	if row != nil {
 		var counts int

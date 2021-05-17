@@ -58,12 +58,12 @@ import (
 	"github.com/erda-project/erda/modules/cmdb/services/project"
 	"github.com/erda-project/erda/modules/cmdb/services/publisher"
 	"github.com/erda-project/erda/modules/cmdb/services/ticket"
-	"github.com/erda-project/erda/modules/cmdb/utils"
 	"github.com/erda-project/erda/pkg/httpserver"
 	"github.com/erda-project/erda/pkg/i18n"
 	"github.com/erda-project/erda/pkg/jsonstore"
 	"github.com/erda-project/erda/pkg/jsonstore/etcd"
 	"github.com/erda-project/erda/pkg/license"
+	"github.com/erda-project/erda/pkg/ucauth"
 )
 
 // Endpoints 定义 endpoint 方法
@@ -72,7 +72,7 @@ type Endpoints struct {
 	etcdStore          *etcd.Store
 	ossClient          *oss.Client
 	db                 *dao.DBClient
-	uc                 *utils.UCClient
+	uc                 *ucauth.UCClient
 	bdl                *bundle.Bundle
 	org                *org.Org
 	cloudaccount       *cloudaccount.CloudAccount
@@ -149,7 +149,7 @@ func WithBundle(bdl *bundle.Bundle) Option {
 }
 
 // WithUCClient 配置 UC Client
-func WithUCClient(uc *utils.UCClient) Option {
+func WithUCClient(uc *ucauth.UCClient) Option {
 	return func(e *Endpoints) {
 		e.uc = uc
 	}
@@ -776,5 +776,9 @@ func (e *Endpoints) Routes() []httpserver.Endpoint {
 		{Path: "/api/reviews/actions/updateReview", Method: http.MethodPut, Handler: e.UpdateApproval},
 		{Path: "/api/reviews/actions/user/create", Method: http.MethodPost, Handler: e.CreateReviewUser},
 		{Path: "/api/reviews/actions/{taskId}", Method: http.MethodGet, Handler: e.GetReviewByTaskId},
+
+		// user-workbench
+		{Path: "/api/workbench/actions/list", Method: http.MethodGet, Handler: e.GetWorkbenchData},
+		{Path: "/api/workbench/issues/actions/list", Method: http.MethodGet, Handler: e.GetIssuesForWorkbench},
 	}
 }

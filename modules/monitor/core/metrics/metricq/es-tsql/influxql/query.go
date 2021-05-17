@@ -19,9 +19,10 @@ import (
 	"sort"
 	"strings"
 
-	tsql "github.com/erda-project/erda/modules/monitor/core/metrics/metricq/es-tsql"
 	"github.com/influxdata/influxql"
 	"github.com/olivere/elastic"
+
+	tsql "github.com/erda-project/erda/modules/monitor/core/metrics/metricq/es-tsql"
 )
 
 // Query .
@@ -260,14 +261,7 @@ func (q *Query) parseDimensionsAggsData(rs *tsql.ResultSet, aggs elastic.Aggrega
 			}
 		}
 	} else if histogram, ok := aggs.Histogram("histogram"); ok {
-		var list []*elastic.AggregationBucketHistogramItem
-		for i := len(histogram.Buckets) - 1; i >= 0; i-- {
-			if histogram.Buckets[i].DocCount > 0 {
-				list = histogram.Buckets[0 : i+1]
-				break
-			}
-		}
-		for _, bucket := range list {
+		for _, bucket := range histogram.Buckets {
 			err := q.parseDimensionsAggsData(rs, bucket.Aggregations, append(buckets, bucket))
 			if err != nil {
 				return err

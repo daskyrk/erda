@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -28,15 +27,15 @@ import (
 	"github.com/erda-project/erda/modules/cmdb/conf"
 	"github.com/erda-project/erda/modules/cmdb/dao"
 	"github.com/erda-project/erda/modules/cmdb/model"
-	"github.com/erda-project/erda/modules/cmdb/utils"
 	"github.com/erda-project/erda/pkg/cron"
 	"github.com/erda-project/erda/pkg/excel"
+	"github.com/erda-project/erda/pkg/ucauth"
 )
 
 // Audit 成员操作封装
 type Audit struct {
 	db   *dao.DBClient
-	uc   *utils.UCClient
+	uc   *ucauth.UCClient
 	cron *cron.Cron
 }
 
@@ -64,7 +63,7 @@ func WithDBClient(db *dao.DBClient) Option {
 }
 
 // WithUCClient 配置 uc client
-func WithUCClient(uc *utils.UCClient) Option {
+func WithUCClient(uc *ucauth.UCClient) Option {
 	return func(a *Audit) {
 		a.uc = uc
 	}
@@ -144,7 +143,7 @@ func (a *Audit) convertAuditsToExcelList(audits []model.Audit) ([][]string, erro
 		return nil, err
 	}
 	for _, u := range users {
-		userIDNameMap[strconv.FormatUint(u.ID, 10)] = u.Nick
+		userIDNameMap[u.ID] = u.Nick
 	}
 
 	// 把r里的userID替换成userName
