@@ -15,6 +15,7 @@ package tableGroup
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -23,6 +24,8 @@ import (
 
 	"github.com/erda-project/erda/apistructs"
 	protocol "github.com/erda-project/erda/modules/openapi/component-protocol"
+	"github.com/erda-project/erda/modules/openapi/component-protocol/scenarios/home-page-content/i18n"
+	"github.com/erda-project/erda/pkg/encoding/jsonparse"
 )
 
 const (
@@ -150,11 +153,12 @@ func (this *TableGroup) getProjectsNum(orgID string) (int, error) {
 
 func (t *TableGroup) addWorkbenchData(datas *apistructs.WorkbenchResponse, orgName string, orgDisplayName string) {
 	dataList := make([]ProItem, 0)
+	i18nLocale := t.ctxBdl.Bdl.GetLocale(t.ctxBdl.Locale)
 	for _, v := range datas.Data.List {
 		pro := ProItem{}
 		image := "/images/default-project-icon.png"
 		if v.ProjectDTO.Logo != "" {
-			image = fmt.Sprintf("https:%s", v.ProjectDTO.Logo)
+			image = v.ProjectDTO.Logo
 		}
 		pro.Title.Props = TitleProps{
 			DisplayName: fmt.Sprintf("%s/%s", orgDisplayName, v.ProjectDTO.DisplayName),
@@ -200,35 +204,35 @@ func (t *TableGroup) addWorkbenchData(datas *apistructs.WorkbenchResponse, orgNa
 		//pro.Title.PrefixImage = ""
 		//pro.Title.Title = fmt.Sprintf("%s/%s", orgName, v.ProjectDTO.DisplayName)
 		//pro.Title.Level = 2
-		pro.SubTitle.Title = "你未完成的事项"
+		pro.SubTitle.Title = i18nLocale.Get(i18n.I18nKeyProUnDoneIssue)
 		pro.SubTitle.Level = 3
 		pro.SubTitle.Size = "small"
 		pro.Description.RenderType = "linkText"
 		pro.Description.Visible = true
 		pro.Description.Value = map[string]interface{}{
 			"text": []interface{}{
-				"当前你还有", map[string]interface{}{
+				i18nLocale.Get(i18n.I18nKeyNowHave), map[string]interface{}{
 					"text":        fmt.Sprintf(" %d ", v.TotalIssueNum),
 					"styleConfig": map[string]interface{}{"bold": true, "fontSize": "16px"},
-				}, "个事项待完成，未指定:", map[string]interface{}{
+				}, i18nLocale.Get(i18n.I18nKeyIssueNoSpecified), map[string]interface{}{
 					"text":        fmt.Sprintf(" %d ", v.UnSpecialIssueNum),
 					"styleConfig": map[string]interface{}{"bold": true, "fontSize": "16px"},
-				}, "，已过期:", map[string]interface{}{
+				}, i18nLocale.Get(i18n.I18nKeyIssueExpired), map[string]interface{}{
 					"text":        fmt.Sprintf(" %d ", v.ExpiredIssueNum),
 					"styleConfig": map[string]interface{}{"bold": true, "fontSize": "16px"},
-				}, "，本日到期:", map[string]interface{}{
+				}, i18nLocale.Get(i18n.I18nKeyIssueTodayExpired), map[string]interface{}{
 					"text":        fmt.Sprintf(" %d ", v.ExpiredOneDayNum),
 					"styleConfig": map[string]interface{}{"bold": true, "fontSize": "16px"},
-				}, "，明天到期:", map[string]interface{}{
+				}, i18nLocale.Get(i18n.I18nKeyIssueTomorrowExpired), map[string]interface{}{
 					"text":        fmt.Sprintf(" %d ", v.ExpiredTomorrowNum),
 					"styleConfig": map[string]interface{}{"bold": true, "fontSize": "16px"},
-				}, "，7日内到期:", map[string]interface{}{
+				}, i18nLocale.Get(i18n.I18nKeyIssueSevenDayExpired), map[string]interface{}{
 					"text":        fmt.Sprintf(" %d ", v.ExpiredSevenDayNum),
 					"styleConfig": map[string]interface{}{"bold": true, "fontSize": "16px"},
-				}, "，30日内到期:", map[string]interface{}{
+				}, i18nLocale.Get(i18n.I18nKeyIssueThirtyDayExpired), map[string]interface{}{
 					"text":        fmt.Sprintf(" %d ", v.ExpiredThirtyDayNum),
 					"styleConfig": map[string]interface{}{"bold": true, "fontSize": "16px"},
-				}, "，未来:", map[string]interface{}{
+				}, i18nLocale.Get(i18n.I18nKeyIssueFeatureExpired), map[string]interface{}{
 					"text":        fmt.Sprintf(" %d ", v.FeatureDayNum),
 					"styleConfig": map[string]interface{}{"bold": true, "fontSize": "16px"},
 				},
@@ -292,6 +296,8 @@ func (t *TableGroup) addWorkbenchData(datas *apistructs.WorkbenchResponse, orgNa
 		projectOperation.Command.Target = "projectAllIssue"
 		projectOperation.Command.JumpOut = true
 		projectOperation.Command.State.Query.IssueViewGroupUrlQuery = "eyJ2YWx1ZSI6ImthbmJhbiIsImNoaWxkcmVuVmFsdWUiOnsia2FuYmFuIjoiZGVhZGxpbmUifX0="
+		projectOperation.Command.State.Query.IssueTableUrlQuery = "eyJwYWdlTm8iOjF9"
+		projectOperation.Command.State.Query.IssueFilterUrlQuery = t.generateIssueUrlQuery()
 		projectOperation.Command.State.Params.ProjectId = strconv.FormatInt(int64(v.ProjectDTO.ID), 10)
 		projectOperation.Command.State.Params.OrgName = orgName
 		projectOperation.Command.Visible = true
@@ -300,7 +306,7 @@ func (t *TableGroup) addWorkbenchData(datas *apistructs.WorkbenchResponse, orgNa
 				RenderType: "linkText",
 				Value: Value{
 					Text: []ValueText{
-						{Text: fmt.Sprintf("查看剩余%d条事件 ", leftIssueNum), OperationKey: "toSpecificProject", Icon: "double-right"},
+						{Text: fmt.Sprintf("%s%d%s ", i18nLocale.Get(i18n.I18nKeyViewRemaining), leftIssueNum, i18nLocale.Get(i18n.I18nKeySomeEvent)), OperationKey: "toSpecificProject", Icon: "double-right"},
 					},
 				},
 			},
@@ -311,6 +317,16 @@ func (t *TableGroup) addWorkbenchData(datas *apistructs.WorkbenchResponse, orgNa
 		dataList = append(dataList, pro)
 	}
 	t.Data.List = dataList
+}
+
+func (t *TableGroup) generateIssueUrlQuery() string {
+	queryMap := map[string]interface{}{
+		"stateBelongs": []apistructs.IssueStateBelong{apistructs.IssueStateBelongOpen, apistructs.IssueStateBelongWorking,
+			apistructs.IssueStateBelongWontfix, apistructs.IssueStateBelongReopen},
+		"assigneeIDs": []string{t.ctxBdl.Identity.UserID},
+	}
+	queryMapStr := jsonparse.JsonOneLine(queryMap)
+	return base64.StdEncoding.EncodeToString([]byte(queryMapStr))
 }
 
 func (t *TableGroup) setBaseComponentValue() {
@@ -338,6 +354,7 @@ func (t *TableGroup) Render(ctx context.Context, c *apistructs.Component, scenar
 		return nil
 	}
 	t.Props.Visible = true
+	t.Props.IsLoadMore = true
 	orgName, orgDisplayName, err := t.getOrgName()
 	if err != nil {
 		return err

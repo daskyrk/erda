@@ -24,7 +24,7 @@ import (
 	"github.com/erda-project/erda/modules/ops/dbclient"
 	aliyun_resources "github.com/erda-project/erda/modules/ops/impl/aliyun-resources"
 	resource_factory "github.com/erda-project/erda/modules/ops/impl/resource-factory"
-	"github.com/erda-project/erda/pkg/uuid"
+	"github.com/erda-project/erda/pkg/crypto/uuid"
 )
 
 type RedisFactory struct {
@@ -72,6 +72,16 @@ func creator(ctx aliyun_resources.Context, m resource_factory.BaseResourceMateri
 			req.AutoRenewPeriod = "1"
 		}
 	}
+
+	// get available vswitch/zone
+	ctx.VpcID = req.VpcID
+	vsw, err := GetAvailableVsw(ctx, apistructs.CreateCloudResourceBaseInfo{VSwitchID: req.VSwitchID, ZoneID: req.ZoneID})
+	if err != nil {
+		logrus.Errorf("get available vswitch failed, error: %v", err)
+		return nil, nil, err
+	}
+	req.VSwitchID = vsw.VSwitchId
+	req.ZoneID = vsw.ZoneId
 
 	logrus.Infof("start to create redis instance, request: %+v", req)
 	resp, err := CreateInstance(ctx, req)

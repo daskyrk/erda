@@ -34,7 +34,7 @@ import (
 	"github.com/erda-project/erda/modules/pipeline/services/queuemanage"
 	"github.com/erda-project/erda/modules/pipeline/services/reportsvc"
 	"github.com/erda-project/erda/modules/pipeline/services/snippetsvc"
-	"github.com/erda-project/erda/pkg/httpserver"
+	"github.com/erda-project/erda/pkg/http/httpserver"
 )
 
 // Endpoints 定义 endpoint 方法
@@ -187,6 +187,10 @@ func (e *Endpoints) Routes() []httpserver.Endpoint {
 		{Path: "/api/pipelines/{pipelineID}/actions/cancel", Method: http.MethodPost, Handler: e.pipelineCancel},
 		{Path: "/api/pipelines/{pipelineID}/actions/rerun", Method: http.MethodPost, Handler: e.pipelineRerun},
 		{Path: "/api/pipelines/{pipelineID}/actions/rerun-failed", Method: http.MethodPost, Handler: e.pipelineRerunFailed},
+
+		// labels
+		{Path: "/api/pipelines-labels/actions/batch-insert-labels", Method: http.MethodPost, Handler: e.batchInsertLabels},
+		{Path: "/api/pipelines-labels", Method: http.MethodGet, Handler: e.pipelineLabelList},
 
 		// tasks
 		{Path: "/api/pipelines/{pipelineID}/tasks/{taskID}", Method: http.MethodGet, Handler: e.pipelineTaskDetail},

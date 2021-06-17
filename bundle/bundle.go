@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/erda-project/erda/pkg/discover"
-	"github.com/erda-project/erda/pkg/httpclient"
+	"github.com/erda-project/erda/pkg/http/httpclient"
 	"github.com/erda-project/erda/pkg/i18n"
 )
 
@@ -238,6 +238,24 @@ func WithKMS() Option {
 func WithAPIM() Option {
 	return func(b *Bundle) {
 		k := discover.EnvAPIM
+		v := os.Getenv(k)
+		b.urls.Put(k, v)
+	}
+}
+
+// WithClusterManager create cluster manager client with CLUSTER_MANAGER
+func WithClusterManager() Option {
+	return func(b *Bundle) {
+		k := discover.EnvClusterManager
+		v := os.Getenv(k)
+		b.urls.Put(k, v)
+	}
+}
+
+// WithECP create ecp client with CLUSTER_MANAGER
+func WithECP() Option {
+	return func(b *Bundle) {
+		k := discover.EnvECP
 		v := os.Getenv(k)
 		b.urls.Put(k, v)
 	}

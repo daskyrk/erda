@@ -30,9 +30,10 @@ import (
 	"github.com/erda-project/erda/modules/cmdb/model"
 	"github.com/erda-project/erda/modules/cmdb/services/apierrors"
 	"github.com/erda-project/erda/modules/pkg/user"
-	"github.com/erda-project/erda/pkg/httpserver"
-	"github.com/erda-project/erda/pkg/httpserver/errorresp"
-	"github.com/erda-project/erda/pkg/httputil"
+	"github.com/erda-project/erda/pkg/filehelper"
+	"github.com/erda-project/erda/pkg/http/httpserver"
+	"github.com/erda-project/erda/pkg/http/httpserver/errorresp"
+	"github.com/erda-project/erda/pkg/http/httputil"
 	"github.com/erda-project/erda/pkg/loop"
 	"github.com/erda-project/erda/pkg/strutil"
 )
@@ -51,8 +52,11 @@ func (e *Endpoints) CreateOrg(ctx context.Context, r *http.Request, vars map[str
 	}
 
 	// 操作鉴权, 只有系统管理员可创建企业
-	if !e.member.IsAdmin(userID.String()) {
-		return apierrors.ErrCreateOrg.AccessDenied().ToResp(), nil
+	// when env: create_org_enabled is true, allow all people create org
+	if !conf.CreateOrgEnabled() {
+		if !e.member.IsAdmin(userID.String()) {
+			return apierrors.ErrCreateOrg.AccessDenied().ToResp(), nil
+		}
 	}
 
 	// 检查body合法性
@@ -555,7 +559,7 @@ func (e *Endpoints) convertToOrgDTO(org model.Org, domains ...string) apistructs
 		ID:          uint64(org.ID),
 		Name:        org.Name,
 		Desc:        org.Desc,
-		Logo:        org.Logo,
+		Logo:        filehelper.APIFileUrlRetriever(org.Logo),
 		Locale:      org.Locale,
 		Domain:      concat_domain,
 		Creator:     org.UserID,

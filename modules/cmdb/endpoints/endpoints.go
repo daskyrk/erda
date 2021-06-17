@@ -58,7 +58,7 @@ import (
 	"github.com/erda-project/erda/modules/cmdb/services/project"
 	"github.com/erda-project/erda/modules/cmdb/services/publisher"
 	"github.com/erda-project/erda/modules/cmdb/services/ticket"
-	"github.com/erda-project/erda/pkg/httpserver"
+	"github.com/erda-project/erda/pkg/http/httpserver"
 	"github.com/erda-project/erda/pkg/i18n"
 	"github.com/erda-project/erda/pkg/jsonstore"
 	"github.com/erda-project/erda/pkg/jsonstore/etcd"
@@ -433,6 +433,10 @@ func (e *Endpoints) DBClient() *dao.DBClient {
 	return e.db
 }
 
+func (e *Endpoints) UCClient() *ucauth.UCClient {
+	return e.uc
+}
+
 // GetLocale 获取本地化资源
 func (e *Endpoints) GetLocale(request *http.Request) *i18n.LocaleResource {
 	return e.bdl.GetLocaleByRequest(request)
@@ -442,6 +446,7 @@ func (e *Endpoints) GetLocale(request *http.Request) *i18n.LocaleResource {
 func (e *Endpoints) Routes() []httpserver.Endpoint {
 	return []httpserver.Endpoint{
 		{Path: "/info", Method: http.MethodGet, Handler: e.Info},
+		{Path: "/_api/health", Method: http.MethodGet, Handler: e.Health},
 
 		// hosts
 		{Path: "/api/hosts/{host}", Method: http.MethodGet, Handler: e.GetHost},
@@ -582,6 +587,7 @@ func (e *Endpoints) Routes() []httpserver.Endpoint {
 		// 用户相关
 		{Path: "/api/users", Method: http.MethodGet, Handler: e.ListUser},
 		{Path: "/api/users/current", Method: http.MethodGet, Handler: e.GetCurrentUser},
+		{Path: "/api/users/actions/search", Method: http.MethodGet, Handler: e.SearchUser},
 
 		// 活动相关
 		{Path: "/api/activities", Method: http.MethodGet, Handler: e.ListActivity},
@@ -673,6 +679,8 @@ func (e *Endpoints) Routes() []httpserver.Endpoint {
 		{Path: "/api/issues/{id}/relations/{relatedIssueID}", Method: http.MethodDelete, Handler: e.DeleteIssueRelation},
 		{Path: "/api/issues/{id}/relations", Method: http.MethodGet, Handler: e.GetIssueRelations},
 		{Path: "/api/issues/actions/update-issue-type", Method: http.MethodPut, Handler: e.UpdateIssueType},
+		{Path: "/api/issues/{id}/actions/subscribe", Method: http.MethodPost, Handler: e.SubscribeIssue},
+		{Path: "/api/issues/{id}/actions/unsubscribe", Method: http.MethodPost, Handler: e.UnsubscribeIssue},
 		// issue state
 		{Path: "/api/issues/actions/create-state", Method: http.MethodPost, Handler: e.CreateIssueState},
 		{Path: "/api/issues/actions/delete-state", Method: http.MethodDelete, Handler: e.DeleteIssueState},

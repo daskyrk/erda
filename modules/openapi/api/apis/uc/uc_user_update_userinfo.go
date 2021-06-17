@@ -32,9 +32,9 @@ import (
 	"github.com/erda-project/erda/modules/openapi/auth"
 	"github.com/erda-project/erda/modules/pkg/user"
 	"github.com/erda-project/erda/pkg/discover"
-	"github.com/erda-project/erda/pkg/httpclient"
-	"github.com/erda-project/erda/pkg/httpserver"
-	"github.com/erda-project/erda/pkg/httpserver/errorresp"
+	"github.com/erda-project/erda/pkg/http/httpclient"
+	"github.com/erda-project/erda/pkg/http/httpserver"
+	"github.com/erda-project/erda/pkg/http/httpserver/errorresp"
 	"github.com/erda-project/erda/pkg/strutil"
 	"github.com/erda-project/erda/pkg/ucauth"
 )
@@ -98,7 +98,7 @@ func updateUserInfo(w http.ResponseWriter, r *http.Request) {
 		ClientIP:  GetRealIP(r),
 		Request:   r,
 	}
-	oldUser, err := ctx.Bundle.ListUsers(apistructs.UserListRequest{UserIDs: []string{req.UserID}})
+	oldUser, err := ctx.Bundle.ListUsers(apistructs.UserListRequest{UserIDs: []string{req.UserID}, Plaintext: true})
 	if err != nil {
 		logrus.Errorf("get old user for audit err: %v", err)
 	}

@@ -23,8 +23,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/erda-project/erda/pkg/jsonparse"
-	"github.com/erda-project/erda/pkg/jsonpath"
+	"github.com/erda-project/erda/pkg/encoding/jsonparse"
+	"github.com/erda-project/erda/pkg/encoding/jsonpath"
 )
 
 func DoAssert(value interface{}, op string, expect string) (bool, error) {
@@ -307,7 +307,9 @@ func isEmpty(value interface{}) (bool, error) {
 			return true, nil
 		}
 	default:
-		return false, errors.Errorf("not support this type, value:%v", reflect.ValueOf(value))
+		if jsonparse.JsonOneLine(value) == "" {
+			return true, nil
+		}
 	}
 
 	return false, nil

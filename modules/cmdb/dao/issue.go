@@ -254,6 +254,15 @@ func (client *DBClient) PagingIssues(req apistructs.IssuePagingRequest, queryIDs
 		sql = sql.Where("plan_finished_at <= ?", endFinishedAt)
 	}
 
+	if req.StartClosedAt > 0 {
+		startClosedAt := time.Unix(req.StartClosedAt/1000, 0)
+		sql = sql.Where("finish_time >= ?", startClosedAt)
+	}
+	if req.EndClosedAt > 0 {
+		endClosedAt := time.Unix(req.EndClosedAt/1000, 0)
+		sql = sql.Where("finish_time <= ?", endClosedAt)
+	}
+
 	if req.Title != "" {
 		title := strings.ReplaceAll(req.Title, "%", "\\%")
 		if _, err := strutil.Atoi64(title); err == nil {
@@ -339,8 +348,14 @@ func (client *DBClient) ListIssue(req apistructs.IssueListRequest) ([]Issue, err
 	if len(req.State) > 0 {
 		sql = sql.Where("state IN (?)", req.State)
 	}
+	sql = sql.Where("deleted = ?", 0).Order("id DESC")
 
-	if err := sql.Where("deleted = ?", 0).Order("id DESC").Find(&issues).Error; err != nil {
+	if req.OnlyIDResult {
+		sql.Select("id")
+	}
+
+	sql = sql.Find(&issues)
+	if err := sql.Error; err != nil {
 		return nil, err
 	}
 

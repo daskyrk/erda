@@ -38,7 +38,7 @@ import (
 	"github.com/erda-project/erda/modules/pipeline/services/extmarketsvc"
 	"github.com/erda-project/erda/modules/pipeline/spec"
 	"github.com/erda-project/erda/pkg/expression"
-	"github.com/erda-project/erda/pkg/httputil"
+	"github.com/erda-project/erda/pkg/http/httputil"
 	"github.com/erda-project/erda/pkg/parser/pipelineyml"
 )
 
@@ -688,7 +688,7 @@ func getLoopOptions(actionSpec apistructs.ActionSpec, taskLoop *apistructs.Pipel
 		TaskLoop:       taskLoop,
 		SpecYmlLoop:    actionSpec.Loop,
 		CalculatedLoop: nil,
-		LoopedTimes:    1, // 当前这次运行即为 1
+		LoopedTimes:    apistructs.TaskLoopTimeBegin, // 当前这次运行即为 1
 	}
 	// calculate
 	//

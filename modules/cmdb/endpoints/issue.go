@@ -28,8 +28,8 @@ import (
 	"github.com/erda-project/erda/modules/cmdb/dao"
 	"github.com/erda-project/erda/modules/cmdb/services/apierrors"
 	"github.com/erda-project/erda/modules/pkg/user"
-	"github.com/erda-project/erda/pkg/httpserver"
-	"github.com/erda-project/erda/pkg/httpserver/errorresp"
+	"github.com/erda-project/erda/pkg/http/httpserver"
+	"github.com/erda-project/erda/pkg/http/httpserver/errorresp"
 	"github.com/erda-project/erda/pkg/strutil"
 )
 
@@ -247,7 +247,7 @@ func (e *Endpoints) ExportExcelIssue(ctx context.Context, w http.ResponseWriter,
 	if err != nil {
 		return apierrors.ErrExportExcelIssue.InternalError(err)
 	}
-	reader, tablename, err := e.issue.ExportExcel(issues, pro, pageReq.ProjectID, pageReq.IsDownload)
+	reader, tablename, err := e.issue.ExportExcel(issues, pro, pageReq.ProjectID, pageReq.IsDownload, pageReq.OrgID)
 	if err != nil {
 		return apierrors.ErrExportExcelIssue.InternalError(err)
 	}
@@ -605,7 +605,7 @@ func (e *Endpoints) GetIssue(ctx context.Context, r *http.Request, vars map[stri
 		}
 	}
 	// userIDs
-	userIDs := strutil.DedupSlice([]string{issue.Creator, issue.Assignee, issue.Owner}, true)
+	userIDs := strutil.DedupSlice(append(issue.Subscribers, issue.Creator, issue.Assignee, issue.Owner), true)
 
 	return httpserver.OkResp(issue, userIDs)
 }
@@ -730,4 +730,42 @@ func (e *Endpoints) GetIssueBugSeverityPercentage(ctx context.Context, r *http.R
 		return errorresp.ErrResp(err)
 	}
 	return httpserver.OkResp(issue)
+}
+
+// SubscribeIssue subscribe issue
+func (e *Endpoints) SubscribeIssue(ctx context.Context, r *http.Request, vars map[string]string) (httpserver.Responser, error) {
+	id, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		return apierrors.ErrSubscribeIssue.InvalidParameter(err).ToResp(), nil
+	}
+
+	identityInfo, err := user.GetIdentityInfo(r)
+	if err != nil {
+		return apierrors.ErrSubscribeIssue.NotLogin().ToResp(), nil
+	}
+
+	if err := e.issue.Subscribe(id, identityInfo); err != nil {
+		return errorresp.ErrResp(err)
+	}
+
+	return httpserver.OkResp(id)
+}
+
+// UnsubscribeIssue unsubscribe issue
+func (e *Endpoints) UnsubscribeIssue(ctx context.Context, r *http.Request, vars map[string]string) (httpserver.Responser, error) {
+	id, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		return apierrors.ErrSubscribeIssue.InvalidParameter(err).ToResp(), nil
+	}
+
+	identityInfo, err := user.GetIdentityInfo(r)
+	if err != nil {
+		return apierrors.ErrSubscribeIssue.NotLogin().ToResp(), nil
+	}
+
+	if err := e.issue.Unsubscribe(id, identityInfo); err != nil {
+		return errorresp.ErrResp(err)
+	}
+
+	return httpserver.OkResp(id)
 }

@@ -27,7 +27,7 @@ import (
 	"github.com/erda-project/erda/apistructs"
 	"github.com/erda-project/erda/modules/cmdb/model"
 	"github.com/erda-project/erda/pkg/envconf"
-	"github.com/erda-project/erda/pkg/httpclientutil"
+	"github.com/erda-project/erda/pkg/http/httpclientutil"
 	"github.com/erda-project/erda/pkg/strutil"
 )
 
@@ -62,22 +62,30 @@ type Conf struct {
 	OpenAPIDomain         string        `env:"OPENAPI_PUBLIC_ADDR"` // Deprecated: after cli refactored
 	AvatarStorageURL      string        `env:"AVATAR_STORAGE_URL"`  // file:///avatars or oss://appkey:appsecret@endpoint/bucket
 	LicenseKey            string        `env:"LICENSE_KEY"`
-	HostSyncInterval      time.Duration `env:"INTERVAL" default:"2m"`                    // 主机实际资源使用同步间隔
-	TaskSyncDuration      time.Duration `env:"TASK_SYNC_DURATION" default:"2h"`          // 任务状态信息同步间隔
-	TaskCleanDuration     time.Duration `env:"TASK_CLEAN_DURATION" default:"24h"`        // 任务信息回收间隔
-	AuditCleanCron        string        `env:"AUDIT_CLEAN_CRON" default:"0 0 3 * * ?"`   // 审计软删除任务执行周期
-	AuditArchiveCron      string        `env:"AUDIT_ARCHIVE_CRON" default:"0 0 4 * * ?"` // 审计归档任务执行周期
-	SysAuditCleanIterval  int           `env:"SYS_AUDIT_CLEAN_ITERVAL" default:"-7"`     // 系统审计清除周期
+	HostSyncInterval      time.Duration `env:"INTERVAL" default:"2m"`                      // 主机实际资源使用同步间隔
+	TaskSyncDuration      time.Duration `env:"TASK_SYNC_DURATION" default:"2h"`            // 任务状态信息同步间隔
+	TaskCleanDuration     time.Duration `env:"TASK_CLEAN_DURATION" default:"24h"`          // 任务信息回收间隔
+	AuditCleanCron        string        `env:"AUDIT_CLEAN_CRON" default:"0 0 3 * * ?"`     // 审计软删除任务执行周期
+	AuditArchiveCron      string        `env:"AUDIT_ARCHIVE_CRON" default:"0 0 4 * * ?"`   // 审计归档任务执行周期
+	MetricsIssueCron      string        `env:"METRICS_ISSUE_CRON" default:"0 0 0 1/7 * ?"` // metrics issue report monitor execution cycle
+	SysAuditCleanIterval  int           `env:"SYS_AUDIT_CLEAN_ITERVAL" default:"-7"`       // 系统审计清除周期
 	RedisMasterName       string        `default:"my-master" env:"REDIS_MASTER_NAME"`
 	RedisSentinelAddrs    string        `default:"" env:"REDIS_SENTINELS_ADDR"`
 	RedisAddr             string        `default:"127.0.0.1:6379" env:"REDIS_ADDR"`
 	RedisPwd              string        `default:"anywhere" env:"REDIS_PASSWORD"`
 	ProjectStatsCacheCron string        `env:"PROJECT_STATS_CACHE_CRON" default:"0 0 1 * * ?"`
 	EnableProjectNS       bool          `env:"ENABLE_PROJECT_NS" default:"true"`
+	LegacyUIDomain        string        `env:"LEGACY_UI_PUBLIC_ADDR"`
 
 	// --- 文件管理 begin ---
 	FileMaxUploadSizeStr string `env:"FILE_MAX_UPLOAD_SIZE" default:"300MB"` // 文件上传限制大小，默认 300MB
 	FileMaxUploadSize    datasize.ByteSize
+	// the size of the file parts stored in memory, the default value 32M refer to https://github.com/golang/go/blob/5c489514bc5e61ad9b5b07bd7d8ec65d66a0512a/src/net/http/request.go
+	FileMaxMemorySizeStr string `env:"FILE_MAX_MEMORY_SIZE" default:"32MB"`
+	FileMaxMemorySize    datasize.ByteSize
+
+	// disable file download permission validate temporarily for multi-domain
+	DisableFileDownloadPermissionValidate bool `env:"DISABLE_FILE_DOWNLOAD_PERMISSION_VALIDATE" default:"false"`
 
 	// fs
 	// 修改该值的话，注意同步修改 dice.yml 中 '<%$.Storage.MountPoint%>/dice/cmdb/files:/files:rw' 容器内挂载点的值
@@ -106,6 +114,9 @@ type Conf struct {
 	OryEnabled           bool   `default:"false" env:"ORY_ENABLED"`
 	OryKratosAddr        string `default:"kratos:4433" env:"KRATOS_ADDR"`
 	OryKratosPrivateAddr string `default:"kratos:4434" env:"KRATOS_PRIVATE_ADDR"`
+
+	// Allow people who are not admin to create org
+	CreateOrgEnabled bool `default:"false" env:"CREATE_ORG_ENABLED"`
 }
 
 var (
@@ -185,8 +196,16 @@ func Load() {
 	fmt.Println(fileMaxUploadByte.String())
 	cfg.FileMaxUploadSize = fileMaxUploadByte
 
+	// parse FileMaxMemorySize
+	var fileMaxMemoryByte datasize.ByteSize
+	if err := fileMaxMemoryByte.UnmarshalText([]byte(cfg.FileMaxMemorySizeStr)); err != nil {
+		panic(fmt.Sprintf("failed to parse FILE_MAX_MEMORY_SIZE, err: %v", err))
+	}
+	cfg.FileMaxMemorySize = fileMaxMemoryByte
+
 	OrgWhiteList = map[string]bool{
 		UIDomain():                          true,
+		LegacyUIDomain():                    true,
 		OpenAPIDomain():                     true,
 		"openapi.default.svc.cluster.local": true,
 	}
@@ -373,6 +392,11 @@ func UIDomain() string {
 	return cfg.UIDomain
 }
 
+// LegacyUIDomain
+func LegacyUIDomain() string {
+	return cfg.LegacyUIDomain
+}
+
 // OpenAPIDomain 返回 OpenAPIDomain 选项
 func OpenAPIDomain() string {
 	return cfg.OpenAPIDomain
@@ -446,6 +470,16 @@ func ProjectStatsCacheCron() string {
 // FileMaxUploadSize 返回 文件上传的大小限制.
 func FileMaxUploadSize() datasize.ByteSize {
 	return cfg.FileMaxUploadSize
+}
+
+// FileMaxMemorySize return the size of the file parts stored in memory
+func FileMaxMemorySize() datasize.ByteSize {
+	return cfg.FileMaxMemorySize
+}
+
+// DisableFileDownloadPermissionValidate return switch for file download permission check.
+func DisableFileDownloadPermissionValidate() bool {
+	return cfg.DisableFileDownloadPermissionValidate
 }
 
 // StorageMountPointInContainer 返回 files 在容器内的挂载点.
@@ -545,4 +579,12 @@ func OryCompatibleClientID() string {
 
 func OryCompatibleClientSecret() string {
 	return ""
+}
+
+func MetricsIssueCron() string {
+	return cfg.MetricsIssueCron
+}
+
+func CreateOrgEnabled() bool {
+	return cfg.CreateOrgEnabled
 }

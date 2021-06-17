@@ -52,6 +52,7 @@ type Issue struct {
 	TaskType         string             `json:"taskType"` // 任务类型
 	BugStage         string             `json:"bugStage"` // BUG阶段
 	Owner            string             `json:"owner"`    // 责任人
+	Subscribers      []string           `json:"subscribers"`
 
 	// 切换到已完成状态的时间 （等事件可以记录历史信息了 删除该字段）
 	FinishTime *time.Time `json:"finishTime"`
@@ -139,7 +140,7 @@ func (t IssueType) GetCorrespondingResource() string {
 	case IssueTypeTicket:
 		return IssueTicketResource
 	case IssueTypeEpic:
-		return IssueTaskResource
+		return IssueEpicResource
 	default:
 		panic(fmt.Sprintf("invalid issue type: %s", string(t)))
 	}
@@ -651,6 +652,10 @@ type IssueListRequest struct {
 	EndFinishedAt int64 `schema:"endFinishedAt" json:"endFinishedAt"`
 	// +optional 是否只筛选截止日期为空的事项
 	IsEmptyPlanFinishedAt bool `schema:"isEmptyPlanFinishedAt" json:"isEmptyPlanFinishedAt"`
+	// +optional ms
+	StartClosedAt int64 `schema:"startClosedAt" json:"startClosedAt"`
+	// +optional ms
+	EndClosedAt int64 `schema:"endClosedAt" json:"endClosedAt"`
 	// +optional 优先级
 	Priority []IssuePriority `schema:"priority" json:"priority"`
 	// +optional 复杂度
@@ -682,6 +687,8 @@ type IssueListRequest struct {
 	IdentityInfo
 	// 用来区分是通过ui还是bundle创建的
 	External bool `json:"-"`
+
+	OnlyIDResult bool `json:"onlyIdResult"`
 }
 
 func (ipr *IssuePagingRequest) UrlQueryString() map[string][]string {
@@ -737,6 +744,12 @@ func (ipr *IssuePagingRequest) UrlQueryString() map[string][]string {
 	}
 	if ipr.IsEmptyPlanFinishedAt == true {
 		query["isEmptyPlanFinishedAt"] = append(query["isEmptyPlanFinishedAt"], "true")
+	}
+	if ipr.StartClosedAt > 0 {
+		query["startClosedAt"] = append(query["startClosedAt"], strconv.FormatInt(ipr.StartClosedAt, 10))
+	}
+	if ipr.EndClosedAt > 0 {
+		query["endClosedAt"] = append(query["endClosedAt"], strconv.FormatInt(ipr.EndClosedAt, 10))
 	}
 	for _, v := range ipr.Priority {
 		query["priority"] = append(query["priority"], string(v))
